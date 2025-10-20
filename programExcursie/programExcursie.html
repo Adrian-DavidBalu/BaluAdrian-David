@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programul excursiei la munte</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        /* Containerul pentru cele 3 imagini */
+        .images-gallery {
+            text-align: center;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: center; /* Centrează grupul de imagini */
+            gap: 15px; /* Spațiu între imagini */
+            flex-wrap: wrap; /* Permite trecerea pe rândul următor pe ecrane mici */
+        }
+
+        /* Stil pentru fiecare imagine din galerie */
+        .imagine-excursie {
+            width: 30%; /* Face ca 3 imagini să încapă pe un rând */
+            max-width: 250px;
+            height: auto;
+            aspect-ratio: 16 / 9; /* Asigură un raport de aspect uniform */
+            object-fit: cover;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border: 3px solid #4CAF50;
+        }
+
+        table {
+            width: 100%;
+            margin: 0 auto;
+            border-collapse: collapse;
+            border: 1px solid #4CAF50;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        thead th {
+            background-color: #A5D6A7;
+            color: #333;
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #90A4AE;
+        }
+
+        tbody td {
+            padding: 10px;
+            border: 1px solid #E0E0E0;
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #F1F8E9;
+        }
+
+        tbody tr:nth-child(odd) {
+            background-color: #DCEDC8;
+        }
+
+        tbody tr:hover {
+            background-color: #C8E6C9;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .scop-excursie {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 0.9em;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Programul excursiei la munte</h1>
+
+        <div class="images-gallery">
+            <img src="C:\Users\david\Desktop\UPB\SIA\An_3\Sem_1\TehnologiiWeb\Lab2\programExcursie\valeacerbului.jpeg" alt="valea-cerbului" class="imagine-excursie">
+            
+            <img src="C:\Users\david\Desktop\UPB\SIA\An_3\Sem_1\TehnologiiWeb\Lab2\programExcursie\laculbalea.jpeg" alt="balea-lac" class="imagine-excursie">
+            
+            <img src="C:\Users\david\Desktop\UPB\SIA\An_3\Sem_1\TehnologiiWeb\Lab2\programExcursie\poianastanei.jpeg" alt="poiana-stanei" class="imagine-excursie">
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Ziua</th>
+                    <th>Activitate principală</th>
+                    <th>Locație</th>
+                    <th>Durată</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>Drumeție spre cabană</td>
+                    <td>Valea Cerbului</td>
+                    <td>4 ore</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>Vizită la lacul glaciar</td>
+                    <td>Lacul Bâlea</td>
+                    <td>5 ore</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>Relaxare și picnic</td>
+                    <td>Poiana Stânei</td>
+                    <td>3 ore</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p class="scop-excursie">
+            Excursia are scopul de a oferi o experiență montană relaxantă și educativă în mijlocul naturii.
+        </p>
+    </div>
+
+</body>
+</html>
