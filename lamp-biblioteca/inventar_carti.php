@@ -5,18 +5,7 @@ if ($conn->connect_error) {
     die("Conexiune eșuată la baza de date: " . $conn->connect_error);
 }
 
-$sql = "SELECT IDcarte, TitluCarte, AutorCarte, NrExemplare, TipFormat, Categorie, AnAparitie 
-         FROM CARTE 
-         ORDER BY TitluCarte ASC";
-
-$result = $conn->query($sql);
-
-if ($result === false) {
-    if (isset($conn)) {
-        $conn->close();
-    }
-    die("Eroare la interogarea bazei de date: " . $conn->error);
-}
+$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="ro">
@@ -105,25 +94,42 @@ if ($result === false) {
             color: white;
             margin-top: 20px;
         }
+
+        #search-container {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        #search-container input {
+            padding: 10px;
+            width: 80%;
+            max-width: 500px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
     <header>
         <img src="poze\logo_biblioteca.jpg" alt="logobiblioteca" class="header-image">
-        <h1>Biblioteca Studențească <span style="font-size: 0.7em;">— Inventar Cărți</span></h1>
+        <h1>SECRET:<span style="font-size: 0.7em;">Mergi ACASĂ și apasă pe logo!!!</span></h1>
     </header>
 
     <nav>
         <ul>
             <li><a href="index.php">Acasă</a></li>
             <li><a href="#inventar">Inventar Cărți</a></li>
-            <li><a href="#">Împrumuturi</a></li>
-            <li><a href="#">Membri</a></li>
+            <li><a href="acces_interzis.php">Împrumuturi</a></li>
+            <li><a href="acces_interzis.php">Membri</a></li>
         </ul>
     </nav>
     
     <div class="main-content" id="inventar">
         <h1>Inventar Cărți</h1>
+
+        <div id="search-container">
+            <input type="text" id="searchInput" placeholder="Căutați după Titlu, Autor sau Gen..." onkeyup="fetchBooks()">
+        </div>
 
         <table>
             <thead>
@@ -137,42 +143,35 @@ if ($result === false) {
                     <th>Stoc Disponibil</th>
                 </tr>
             </thead>
-            <tbody>
-            <?php
-            if ($result->num_rows > 0) {
-                while($row = $result->fetch_assoc()) {
-                    $clasa_stoc = (($row["NrExemplare"] ?? 0) <= 5) ? 'stoc-redus' : '';
-                    
-                    echo "<tr class='$clasa_stoc'>";
-                    echo "<td>" . htmlspecialchars($row["IDcarte"] ?? '') . "</td>";
-                    echo "<td>" . htmlspecialchars($row["TitluCarte"] ?? '') . "</td>";
-                    echo "<td>" . htmlspecialchars($row["AutorCarte"] ?? '') . "</td>";
-                    echo "<td>" . htmlspecialchars($row["Categorie"] ?? '') . "</td>"; 
-                    echo "<td>" . htmlspecialchars($row["TipFormat"] ?? '') . "</td>"; 
-                    echo "<td>" . htmlspecialchars($row["AnAparitie"] ?? '') . "</td>"; 
-                    echo "<td>" . htmlspecialchars($row["NrExemplare"] ?? '') . "</td>"; 
-                    echo "</tr>";
-                }
-            } else {
-                echo "<tr><td colspan='7' style='text-align: center; color: #777;'>
-                          Nu au fost găsite cărți în baza de date. Vă rugăm să verificați dacă tabela CARTE conține date.
-                      </td></tr>";
-            }
-            if (isset($result) && $result instanceof mysqli_result) {
-                $result->free();
-            }
-            ?>
+            <tbody id="bookTableBody">
             </tbody>
         </table>
     </div>
 
-<?php
-if (isset($conn)) {
-    $conn->close();
-}
-?>
     <footer>
         <p style="text-align: center; color:white;">&copy; 2025 Biblioteca Studențească. Toate drepturile sunt rezervate!</p>
     </footer>
+    
+    <script>
+        function fetchBooks() {
+            var searchTerm = document.getElementById('searchInput').value;
+            var tableBody = document.getElementById('bookTableBody');
+
+            var xhr = new XMLHttpRequest();
+            
+            xhr.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    tableBody.innerHTML = this.responseText;
+                }
+            };
+            
+            xhr.open("GET", "cauta_carti.php?q=" + encodeURIComponent(searchTerm), true);
+            xhr.send();
+        }
+        
+        window.onload = function() {
+            fetchBooks();
+        };
+    </script>
 </body>
 </html>

@@ -93,7 +93,8 @@ require_once 'config.php';
 </head>
 <body>
     <header>
-        <img src="poze\logo_biblioteca.jpg" alt="logobiblioteca" class="header-image">
+        <a href="pagina_misterioasa.php">
+        <img src="poze\logo_biblioteca.jpg" alt="logobiblioteca" class="header-image"></a>
         <h1>Biblioteca Studențească <span style="font-size: 0.7em;">— Din 2017</span></h1>
     </header>
 

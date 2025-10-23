@@ -8,4 +8,3 @@
  
  Tehnologii Utilizate: HTML5, CSS3S, PHP, Bază de DateMySQL (MariaDB), Docker
  
-
