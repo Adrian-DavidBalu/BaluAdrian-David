@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ro">
+	<head>
+		<meta charset="UTF-8">
+		<title> Exercitiul 5</title>
+		<p>Consola din F12 in browser!!!</p>
+	</head>
+		<h1> Rezolvare exercitiul 5:</h1>
+		<body>
+		<script>
+			function rezolvaTriunghi(a,b,c)
+			{
+			console.log("Laturi: a=" +a+", b="+b+", c="+c);
+			var esteTriunghi=(a+b>c) && (a+c>b) &&(b+c>a);
+			if(!esteTriunghi)
+			{
+			console.log("NU pot forma un triunghi");
+			return;
+			}
+			console.log("Poate forma un triunghi");
+			if(a==b && b==c && c==a)
+			console.log("Tip triunghi: echilateral");
+			else if(a==b || a==c || b==c)
+			console.log("Tip triunghi: isoscel");
+			else console.log("Tip triunghi: oarecare");
+			}
+			rezolvaTriunghi(13,105,13);
+		</script>
+		</body>
+</html>

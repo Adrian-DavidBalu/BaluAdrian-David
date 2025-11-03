@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ro">
+	<head>
+		<meta charset="UTF-8">
+		<title> Exercitiul 4</title>
+		<p>Consola din F12 in browser!!!</p>
+	</head>
+		<h1> Rezolvare exercitiul 4:</h1>
+		<body>
+		<script>
+			function rezolvaDreptunghi(l1,l2,l3,l4)
+			{
+			var laturi=[l1,l2,l3,l4];
+			laturi.sort(function(a,b)
+			{return a-b;
+			});
+			var esteDreptunghi=(laturi[0]==laturi[1])&&(laturi[2] && laturi [3]);
+			if(esteDreptunghi)
+			{
+			var la=laturi[0];
+			var lb=laturi[2];
+			var p=2*(la+lb);
+			var A=la*lb;
+			console.log("Pot reprezenta laturile unui dreptunghi!")
+			console.log("Perimetru: "+p);
+			console.log("Aria: "+A);
+			}
+			else
+			{
+			console.log("NU pot reprezenta laturile unui dreptunghi.");
+			}
+			}
+			rezolvaDreptunghi(13,11,13,17);
+		</script>
+		</body>
+</html>
