@@ -22,6 +22,77 @@ if ($conn === null) {
     die("Eroare la conexiunea cu baza de date.");
 }
 
+$message = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'rezerva_carte') {
+    $id_carte_rezervare = filter_input(INPUT_POST, 'IDcarte', FILTER_VALIDATE_INT);
+    $taxa_rezervare = 5;
+
+    if ($id_carte_rezervare) {
+        $conn->begin_transaction();
+        
+        try {
+            $sql_check = "SELECT TitluCarte FROM CARTE WHERE IDcarte = ?";
+            $stmt_check = $conn->prepare($sql_check);
+            $stmt_check->bind_param("i", $id_carte_rezervare);
+            $stmt_check->execute();
+            $result_check = $stmt_check->get_result();
+            $book = $result_check->fetch_assoc();
+            $stmt_check->close();
+
+            if (!$book) {
+                throw new Exception("ID carte invalid sau cartea nu există.");
+            }
+
+            $data_actiune = date('Y-m-d H:i:s');
+            // VALOAREA CORECTĂ PENTRU TipActiune
+            $tip_actiune = 'Rezervare'; 
+            // VALOAREA CORECTĂ PENTRU StatusCarteActiune (Asumă că a fost adăugată în ENUM)
+            $status_actiune = 'Rezervată'; 
+            
+            $sql_actiune = "INSERT INTO ACTIUNE (IDmembru, IDcarte, TipActiune, StatusCarteActiune, DataActiune) 
+                            VALUES (?, ?, ?, ?, ?)";
+            $stmt_actiune = $conn->prepare($sql_actiune);
+            // Tipul de legare este iisss
+            $stmt_actiune->bind_param("iisss", $id_membru, $id_carte_rezervare, $tip_actiune, $status_actiune, $data_actiune);
+            
+            if (!$stmt_actiune->execute()) {
+                throw new Exception("Eroare la inserarea acțiunii: " . $stmt_actiune->error);
+            }
+            $id_actiune = $conn->insert_id;
+            $stmt_actiune->close();
+
+            $sql_rezervare = "INSERT INTO REZERVARE (IDactiune, TaxaRezervare) VALUES (?, ?)";
+            $stmt_rezervare = $conn->prepare($sql_rezervare);
+            $stmt_rezervare->bind_param("ii", $id_actiune, $taxa_rezervare);
+            
+            if (!$stmt_rezervare->execute()) {
+                throw new Exception("Eroare la inserarea rezervării: " . $stmt_rezervare->error);
+            }
+            $stmt_rezervare->close();
+
+            $conn->commit();
+            $message = "🎉 Cartea **" . htmlspecialchars($book['TitluCarte']) . "** a fost rezervată! Data de expirare este " . formatDateTime(date('Y-m-d H:i:s', strtotime('+48 hours'))) . ".";
+
+        } catch (Exception $e) {
+            $conn->rollback();
+            $message = "Rezervarea a eșuat. Vă rugăm verificați ID-ul cărții. Eroare tehnică: " . $e->getMessage();
+        }
+
+    } else {
+        $message = "ID carte invalid.";
+    }
+    
+    $_SESSION['message'] = $message;
+    header("Location: pagina_profil_utilizator.php#rezervari");
+    exit();
+}
+
+if (isset($_SESSION['message'])) {
+    $message = $_SESSION['message'];
+    unset($_SESSION['message']);
+}
+
 $user_details = [];
 $sql_user = "
     SELECT 
@@ -51,6 +122,36 @@ if ($result_user->num_rows > 0) {
     exit();
 }
 $stmt_user->close();
+
+$rezervari_active = [];
+$sql_rezervari = "
+    SELECT 
+        C.TitluCarte, 
+        GROUP_CONCAT(CONCAT(A2.NumeAutor, ' ', A2.PrenumeAutor) SEPARATOR ', ') AS Autor,
+        AC.DataActiune AS DataRezervare,
+        DATE_ADD(AC.DataActiune, INTERVAL 48 HOUR) AS DataExpirare,
+        R.TaxaRezervare
+    FROM ACTIUNE AC
+    JOIN REZERVARE R ON AC.IDactiune = R.IDactiune
+    JOIN CARTE C ON AC.IDcarte = C.IDcarte
+    LEFT JOIN AUTOR_CARTE AC2 ON C.IDcarte = AC2.IDcarte
+    LEFT JOIN AUTOR A2 ON AC2.IDautor = A2.IDautor
+    WHERE AC.IDmembru = ?
+      AND AC.TipActiune = 'Rezervare'
+      AND AC.StatusCarteActiune = 'Rezervată'
+      AND DATE_ADD(AC.DataActiune, INTERVAL 48 HOUR) > NOW()
+    GROUP BY AC.IDactiune
+    ORDER BY DataExpirare ASC
+";
+$stmt_rezervari = $conn->prepare($sql_rezervari);
+$stmt_rezervari->bind_param("i", $id_membru);
+$stmt_rezervari->execute();
+$result_rezervari = $stmt_rezervari->get_result();
+while ($row = $result_rezervari->fetch_assoc()) {
+    $rezervari_active[] = $row;
+}
+$stmt_rezervari->close();
+
 $imprumuturi_active = [];
 $sql_active = "
     SELECT 
@@ -77,6 +178,7 @@ while ($row = $result_active->fetch_assoc()) {
     $imprumuturi_active[] = $row;
 }
 $stmt_active->close();
+
 $istoric_imprumuturi = [];
 $sql_istoric = "
     SELECT 
@@ -104,7 +206,18 @@ $conn->close();
 
 function formatDate($date) {
     if ($date === 'N/A') return 'N/A';
+    if (strtotime($date) === false) {
+        return 'Data invalidă';
+    }
     return date("d.m.Y", strtotime($date));
+}
+
+function formatDateTime($datetime) {
+    if ($datetime === 'N/A') return 'N/A';
+    if (strtotime($datetime) === false) {
+        return 'Data invalidă';
+    }
+    return date("d.m.Y H:i", strtotime($datetime));
 }
 
 if (isset($_GET['action']) && $_GET['action'] == 'logout') {
@@ -123,7 +236,9 @@ $data_inregistrare = formatDate($user_details['DataInscriereMembru'] ?? 'N/A');
 $statut_membru = $user_details['StatusMembru'] ?? 'Inactiv';
 
 $status_class = "status-available";
-if ($statut_membru !== 'Activ' || count($imprumuturi_active) > 0) {
+if (count($imprumuturi_active) > 0) {
+    $status_class = "status-rented"; 
+} else if ($statut_membru !== 'Activ') {
     $status_class = "status-rented"; 
 }
 
@@ -131,6 +246,7 @@ $statut_afisat = $statut_membru;
 if (count($imprumuturi_active) > 0) {
     $statut_afisat .= " (cu " . count($imprumuturi_active) . " cărți împrumutate)";
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="ro">
@@ -291,6 +407,12 @@ if (count($imprumuturi_active) > 0) {
         .card-list li strong {
             color: #ffdd57;
         }
+        
+        .reservation-item {
+            border-left: 0.3125rem solid #ff9800 !important;
+            background-color: rgba(255, 152, 0, 0.2) !important;
+            color: white;
+        }
 
         .status-rented {
             color: #ff4d4d;
@@ -330,12 +452,30 @@ if (count($imprumuturi_active) > 0) {
         
         .modal-content input[type="text"],
         .modal-content input[type="password"],
-        .modal-content input[type="email"] {
+        .modal-content input[type="email"],
+        .modal-content input[type="number"] {
+            width: 100%;
             padding: 0.625rem;
             margin-top: 0.3125rem;
+            margin-bottom: 0.9375rem;
+            border: 0.0625rem solid #ccc;
+            border-radius: 0.3125rem;
+            box-sizing: border-box;
             font-size: 1rem;
         }
-
+        
+        .modal-content button[type="submit"] {
+            background-color: #007bff;
+            color: white;
+            padding: 0.625rem 1rem;
+            border: none;
+            border-radius: 0.3125rem;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+            margin-top: 0.625rem;
+        }
+        
         .back-to-top {
             position: fixed;
             bottom: 1.25rem;
@@ -365,6 +505,17 @@ if (count($imprumuturi_active) > 0) {
              margin-right: auto;
              display: block;
         }
+        
+        .alert-message {
+            padding: 0.625rem;
+            margin: 1rem auto;
+            max-width: 56.25rem;
+            background-color: #ffdd57;
+            color: #1a1a1a;
+            border-radius: 0.3125rem;
+            text-align: center;
+            font-weight: bold;
+        }
 
         @media (min-width: 56.25rem) {
             
@@ -389,14 +540,18 @@ if (count($imprumuturi_active) > 0) {
                 padding: 1.5rem;
             }
 
-            #imprumuturi .card-list, #istoric .card-list {
+            #imprumuturi .card-list, #istoric .card-list, #rezervari .card-list {
                 flex-direction: row;
                 flex-wrap: wrap;
             }
             
-            #imprumuturi .card-list li, #istoric .card-list li {
+            #imprumuturi .card-list li, #istoric .card-list li, #rezervari .card-list li {
                 flex: 1 1 calc(50% - 1rem);
                 box-sizing: border-box;
+            }
+            
+            .alert-message {
+                max-width: 56.25rem;
             }
         }
         
@@ -446,6 +601,7 @@ if (count($imprumuturi_active) > 0) {
                 <li><a href="index.php">Acasă</a></li>
                 <li><a href="#profil">Profilul Meu</a></li>
                 <li><a href="#imprumuturi">Cărți Împrumutate</a></li>
+                <li><a href="#rezervari">Rezervări</a></li>
                 <li><a href="#istoric">Istoric</a></li>
                 <li><a href="#setari">Setări Cont</a></li>
                 <li><a href="pagina_login.php?action=logout" class="link-button" style="background-color: #dc3545; padding: 0.3125rem 0.625rem;">Delogare</a></li>
@@ -453,6 +609,10 @@ if (count($imprumuturi_active) > 0) {
         </nav>
         
         <main>
+            <?php if (!empty($message)): ?>
+                <div class="alert-message"><?php echo $message; ?></div>
+            <?php endif; ?>
+            
             <section id="profil">
                 <h2>Bun venit, <?php echo htmlspecialchars($prenume); ?>! 👋</h2>
                 <div class="user-details">
@@ -460,10 +620,31 @@ if (count($imprumuturi_active) > 0) {
                     <p><strong>Nume Utilizator:</strong> <?php echo htmlspecialchars($nume_utilizator); ?></p>
                     <p><strong>ID Membru:</strong> <?php echo htmlspecialchars($id_utilizator); ?></p>
                     <p><strong>Email:</strong> <?php echo htmlspecialchars($email); ?></p>
-                    <p><strong>Data Înregistrării:</strong> <?php echo htmlspecialchars($data_inregistrare); ?></p>
+                    <p><strong>Data Înregistrării:</strong> <?php echo formatDate($user_details['DataInscriereMembru'] ?? 'N/A'); ?></p>
                     <p><strong>Statut:</strong> <span class="<?php echo $status_class; ?>"><?php echo htmlspecialchars($statut_afisat); ?></span></p>
                 </div>
                 <a href="#setari" class="link-button">Editează Profil</a>
+                <button id="rezervaCarteBtn" class="link-button" style="background-color: #ff9800; color: white;">Rezervă o Carte (48 de ore)</button>
+            </section>
+            
+            <section id="rezervari"> 
+                <h2>Rezervări Active 🕒</h2>
+                <ul class="card-list">
+                    <?php if (count($rezervari_active) > 0): ?>
+                        <?php foreach ($rezervari_active as $rezervare): ?>
+                            <li class="reservation-item">
+                                <strong>Titlu:</strong> <?php echo htmlspecialchars($rezervare['TitluCarte']); ?><br>
+                                <strong>Autor:</strong> <?php echo htmlspecialchars($rezervare['Autor'] ?? 'N/A'); ?><br>
+                                <strong>Taxă Rezervare:</strong> <?php echo htmlspecialchars($rezervare['TaxaRezervare']); ?> RON<br>
+                                <strong>Rezervat la:</strong> <?php echo formatDateTime($rezervare['DataRezervare']); ?><br>
+                                <strong>Expiră la:</strong> <span style="font-weight: bold; color: #ffdd57;"><?php echo formatDateTime($rezervare['DataExpirare']); ?></span>
+                            </li>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <li>Nu aveți rezervări active în prezent.</li>
+                    <?php endif; ?>
+                </ul>
+                <p style="margin-top: 0.9375rem; color: #ffdd57;">Vă rugăm să ridicați cărțile de la ghișeu înainte de data și ora de expirare.</p>
             </section>
             
             <section id="imprumuturi"> 
@@ -475,7 +656,7 @@ if (count($imprumuturi_active) > 0) {
                                 <strong>Titlu:</strong> <?php echo htmlspecialchars($carte['TitluCarte']); ?><br>
                                 <strong>Autor:</strong> <?php echo htmlspecialchars($carte['Autor']); ?><br>
                                 <strong>Data Împrumut:</strong> <?php echo formatDate($carte['DataImprumut']); ?> | <strong>Data Scadenței:</strong> <?php echo formatDate($carte['DataScadenta']); ?> ⏳<br>
-                                <strong>Status:</strong> <span class="status-rented">Împrumutat</span>
+                                <strong>Status:</strong> <span class="status-rented">Împrumutată</span>
                             </li>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -492,7 +673,7 @@ if (count($imprumuturi_active) > 0) {
                         <?php foreach ($istoric_imprumuturi as $istoric): ?>
                             <li>
                                 <strong>Titlu:</strong> <?php echo htmlspecialchars($istoric['TitluCarte']); ?><br>
-                                <strong>Data Returnării:</strong> <?php echo formatDate($istoric['DataReturnare']); ?> | <strong>Status:</strong> <span class="status-available">Returnat</span>
+                                <strong>Data Returnării:</strong> <?php echo formatDate($istoric['DataReturnare']); ?> | <strong>Status:</strong> <span class="status-available">Returnată</span>
                             </li>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -524,12 +705,12 @@ if (count($imprumuturi_active) > 0) {
         <div class="modal-content">
             <span class="close" data-modal-id="modalParola">&times;</span>
             <h3>Schimbă Parola</h3>
-            <form action="profil.php" method="POST">
+            <form action="pagina_profil_utilizator.php" method="POST">
                 <input type="hidden" name="action" value="schimba_parola">
                 <label for="parolaCurenta">Parola Curentă:</label>
-                <input type="password" id="parolaCurenta" name="parolaCurenta" required><br>
+                <input type="password" id="parolaCurenta" name="parolaCurenta" required>
                 <label for="parolaNoua">Parola Nouă:</label>
-                <input type="password" id="parolaNoua" name="parolaNoua" required><br>
+                <input type="password" id="parolaNoua" name="parolaNoua" required>
                 <label for="confirmaParolaNoua">Confirmă Parola Nouă:</label>
                 <input type="password" id="confirmaParolaNoua" name="confirmaParolaNoua" required>
                 <button type="submit">Actualizează Parola</button>
@@ -541,15 +722,35 @@ if (count($imprumuturi_active) > 0) {
         <div class="modal-content">
             <span class="close" data-modal-id="modalEmail">&times;</span>
             <h3>Schimbă Adresa de Email</h3>
-            <form action="profil.php" method="POST">
+            <form action="pagina_profil_utilizator.php" method="POST">
                 <input type="hidden" name="action" value="schimba_email">
                 <label for="emailCurent">Adresa de Email Curentă:</label>
-                <input type="email" id="emailCurent" name="emailCurent" value="<?php echo htmlspecialchars($email); ?>" disabled><br>
+                <input type="email" id="emailCurent" name="emailCurent" value="<?php echo htmlspecialchars($email); ?>" disabled>
                 <label for="emailNou">Adresa de Email Nouă:</label>
-                <input type="email" id="emailNou" name="emailNou" required><br>
+                <input type="email" id="emailNou" name="emailNou" required>
                 <label for="parolaConfirmare">Parola (pentru confirmare):</label>
                 <input type="password" id="parolaConfirmare" name="parolaConfirmare" required>
                 <button type="submit">Actualizează Email</button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modalRezervare" class="modal">
+        <div class="modal-content">
+            <span class="close" data-modal-id="modalRezervare">&times;</span>
+            <h3>Rezervare Carte (48h)</h3>
+            
+            <p>
+                Pentru a afla **ID-ul cărții**, vă rugăm consultați 
+                <a href="inventar_carti.php" target="_blank" style="color: #007bff; font-weight: bold; text-decoration: underline;">Inventarul de Cărți (se deschide într-o fereastră nouă)</a>.
+            </p>
+            
+            <p>Vă rugăm introduceți **ID-ul cărții** pe care doriți să o rezervați. Timpul de ridicare este de 48 de ore din momentul rezervării. Taxa de rezervare este de 5 RON.</p>
+            <form action="pagina_profil_utilizator.php" method="POST">
+                <input type="hidden" name="action" value="rezerva_carte">
+                <label for="carteIdRezervare">ID Carte:</label>
+                <input type="number" id="carteIdRezervare" name="IDcarte" min="1" required>
+                <button type="submit">Confirmă Rezervarea</button>
             </form>
         </div>
     </div>
@@ -557,8 +758,12 @@ if (count($imprumuturi_active) > 0) {
     <script>
         const modalParola = document.getElementById('modalParola');
         const modalEmail = document.getElementById('modalEmail');
+        const modalRezervare = document.getElementById('modalRezervare');
+        
         const btnParola = document.getElementById('schimbaParolaBtn');
         const btnEmail = document.getElementById('schimbaEmailBtn');
+        const btnRezervare = document.getElementById('rezervaCarteBtn');
+        
         const closeBtns = document.querySelectorAll('.close');
 
         function openModal(modal) {
@@ -576,6 +781,10 @@ if (count($imprumuturi_active) > 0) {
         btnEmail.onclick = function() {
             openModal(modalEmail);
         }
+        
+        btnRezervare.onclick = function() {
+            openModal(modalRezervare);
+        }
 
         closeBtns.forEach(btn => {
             btn.onclick = function() {
@@ -591,6 +800,9 @@ if (count($imprumuturi_active) > 0) {
             }
             if (event.target == modalEmail) {
                 closeModal(modalEmail);
+            }
+            if (event.target == modalRezervare) {
+                closeModal(modalRezervare);
             }
         }
     </script>
