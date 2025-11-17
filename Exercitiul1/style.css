@@ -1,0 +1,52 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: white;
+    margin: 10px;
+    padding: 0;
+}
+.container-principal {
+    width: 90%; 
+    margin: 0 auto;
+    padding: 10px;
+}
+h1 {
+    text-align: center;
+    margin-bottom: 10px;
+}
+p {
+    text-align: left;
+    margin-bottom: 10px;
+}
+.card-activitati {
+    border: 1px solid black;
+    padding: 10px;
+}
+#inputActivitate {
+    width: 70%; 
+    padding: 5px;
+    margin-right: 5px;
+    border: 1px solid black;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+#btnAdauga {
+    padding: 5px 10px;
+    background-color: lightgray;
+    color: black;
+    border: 1px solid black;
+    cursor: pointer;
+    font-size: 14px;
+}
+#listaActivitati {
+    list-style-type: none;
+    padding: 0;
+    margin-top: 10px;
+}
+#listaActivitati li {
+    padding: 5px 0;
+    border-bottom: 1px dashed #333;
+    font-size: 14px;
+}
+#listaActivitati li:last-child {
+    border-bottom: none;
+}
